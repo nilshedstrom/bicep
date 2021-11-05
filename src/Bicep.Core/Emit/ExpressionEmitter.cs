@@ -114,16 +114,16 @@ namespace Bicep.Core.Emit
 
         public void EmitIndexedSymbolReference(ResourceMetadata resource, SyntaxBase indexExpression, SyntaxBase newContext)
         {
-            var expression = converter.CreateConverterForIndexReplacement(resource.NameSyntax, indexExpression, newContext)
-                .GenerateSymbolicReference(resource.Symbol.Name, indexExpression);
+            var replacementContext = converter.TryGetReplacementContext(resource.NameSyntax, indexExpression, newContext);
+            var expression = converter.GenerateSymbolicReference(resource.Symbol.Name, replacementContext);
 
             writer.WriteValue(ExpressionSerializer.SerializeExpression(expression));
         }
 
         public void EmitIndexedSymbolReference(ModuleSymbol moduleSymbol, SyntaxBase indexExpression, SyntaxBase newContext)
         {
-            var expression = converter.CreateConverterForIndexReplacement(ExpressionConverter.GetModuleNameSyntax(moduleSymbol), indexExpression, newContext)
-                .GenerateSymbolicReference(moduleSymbol.Name, indexExpression);
+            var replacementContext = converter.TryGetReplacementContext(ExpressionConverter.GetModuleNameSyntax(moduleSymbol), indexExpression, newContext);
+            var expression = converter.GenerateSymbolicReference(moduleSymbol.Name, replacementContext);
 
             writer.WriteValue(ExpressionSerializer.SerializeExpression(expression));
         }
