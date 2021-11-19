@@ -9,9 +9,11 @@ using Bicep.Core.Semantics;
 using Bicep.Core.Semantics.Namespaces;
 using Bicep.Core.Syntax;
 using Bicep.Core.TypeSystem;
+using Bicep.Core.Workspaces;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Linq;
 
 namespace Bicep.Core.Analyzers.Linter.Rules
@@ -27,6 +29,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
         // 5) When consuming a module with a location parameter, the parameter must be given an explicit value (it may not be left to its default value)
 
         public new const string Code = "no-hardcoded-location";
+
 
         private const string LocationParameterName = "location"; // (case-insensitive)
         private const string DeploymentFunctionName = "deployment";
@@ -67,91 +70,88 @@ namespace Bicep.Core.Analyzers.Linter.Rules
 
             public override void VisitParameterDeclarationSyntax(ParameterDeclarationSyntax syntax)
             {
-                if (StringComparer.OrdinalIgnoreCase.Equals(syntax.Name.IdentifierName, NoHardcodedLocationRule.LocationParameterName))
-                {
-                    // We found a parameter with name 'location'
+                //if (StringComparer.OrdinalIgnoreCase.Equals(syntax.Name.IdentifierName, NoHardcodedLocationRule.LocationParameterName))
+                //{
+                // We found a parameter with name 'location'
 
-                    // Sub-rule 1: If a location parameter exists, it must be of type string
-                    var typeInfo = model.GetTypeInfo(syntax);
-                    if ((typeInfo.Type.TypeKind != TypeSystem.TypeKind.Primitive || typeInfo.Type.Name != "string")
-                        && syntax.ParameterType?.Span != null)
-                    {
-                        var fix = new CodeAction.CodeFix(
-                            CoreResources.NoHardcodedLocation_LocationMustBeTypeString_FixDescription,
-                            true, // isPreferred
-                            new CodeAction.CodeReplacement(syntax.ParameterType.Span, "string"));
-                        this.diagnostics.Add(
-                            parent.CreateFixableDiagnosticForSpan(
-                                syntax.ParameterType.Span,
-                                fix,
-                                CoreResources.NoHardcodedLocation_LocationMustBeTypeString));
-                    }
+                //// Sub-rule 1: If a location parameter exists, it must be of type string
+                //var typeInfo = model.GetTypeInfo(syntax);
+                //if ((typeInfo.Type.TypeKind != TypeSystem.TypeKind.Primitive || typeInfo.Type.Name != "string")
+                //    && syntax.ParameterType?.Span != null)
+                //{
+                //    var fix = new CodeAction.CodeFix(
+                //        CoreResources.NoHardcodedLocation_LocationMustBeTypeString_FixDescription,
+                //        true, // isPreferred
+                //        new CodeAction.CodeReplacement(syntax.ParameterType.Span, "string"));
+                //    this.diagnostics.Add(
+                //        parent.CreateFixableDiagnosticForSpan(
+                //            syntax.ParameterType.Span,
+                //            fix,
+                //            CoreResources.NoHardcodedLocation_LocationMustBeTypeString));
+                //}
 
-                    // Sub-rule 2: Parameter location may optionally default to resourceGroup().location or deployment().location or the string 'global'.
-                    if (syntax.Modifier is ParameterDefaultValueSyntax defaultValue)
-                    {
-                        var defaultValueText = defaultValue.DefaultValue.ToText();
-                        if (StringComparer.OrdinalIgnoreCase.Equals(defaultValueText, $"'{GlobalLocationValue}'"))
-                        {
-                            // okay
-                        }
-                        else
-                        {
-                            switch (defaultValueText)
-                            {
-                                case "deployment().location":
-                                case "az.deployment().location":
-                                case "resourceGroup().location":
-                                case "az.resourceGroup().location":
-                                    break; // okay
+                // Sub-rule 2: Parameter location may optionally default to resourceGroup().location or deployment().location or the string 'global'.
+                //if (syntax.Modifier is ParameterDefaultValueSyntax defaultValue)
+                //{
+                //    var defaultValueText = defaultValue.DefaultValue.ToText();
+                //    if (StringComparer.OrdinalIgnoreCase.Equals(defaultValueText, $"'{GlobalLocationValue}'"))
+                //    {
+                //        // okay
+                //    }
+                //    else
+                //    {
+                //        switch (defaultValueText)
+                //        {
+                //            case "deployment().location":
+                //            case "az.deployment().location":
+                //            case "resourceGroup().location":
+                //            case "az.resourceGroup().location":
+                //                break; // okay
 
-                                default:
-                                    // Anything else is a failure
-                                    this.diagnostics.Add(
-                                        parent.CreateDiagnosticForSpan(
-                                            defaultValue.Span,
-                                            CoreResources.NoHardcodedLocation_LocationDefaultInvalidValue));
-                                    break;
-                            }
-                        }
-                    }
+                //            default:
+                //                // Anything else is a failure
+                //                this.diagnostics.Add(
+                //                    parent.CreateDiagnosticForSpan(
+                //                        defaultValue.Span,
+                //                        CoreResources.NoHardcodedLocation_LocationDefaultInvalidValue));
+                //                break;
+                //        }
+                //    }
+                //}
 
-                    // {deployment,resourceGroup}().location (sub-rule 3) are acceptable inside of the "location" parameter's
-                    //   default value, so don't traverse into the parameter's default value any further because that would
-                    //   flag those expressions.
-                    return;
-                }
+                // {deployment,resourceGroup}().location (sub-rule 3) are acceptable inside of the "location" parameter's
+                //   default value, so don't traverse into the parameter's default value any further because that would
+                //   flag those expressions.
+                return;
 
-                base.VisitParameterDeclarationSyntax(syntax);
+                //base.VisitParameterDeclarationSyntax(syntax);
             }
 
             public override void VisitModuleDeclarationSyntax(ModuleDeclarationSyntax syntax)
             {
                 // Sub-rule  5: When consuming a module with a location parameter, the parameter must be given an explicit value (it may not be left to its default value)
+                //asdfg
 
                 if (syntax.TryGetBody() is ObjectSyntax body)
                 {
-                    // Look for a formal parameter in the module named 'location' (case-insensitive)
-                    TypeProperty? locationFormalParameter = null;
+                    IEnumerable<ParameterDeclarationSyntax> moduleFormalParameters = GetConsumedModuleParameterDefinitionsOrEmpty(syntax);
+                    List<string> locationFormalParameters = new List<string>();
 
-                    TypeSystem.TypeSymbol? ti = model.GetTypeInfo(syntax).UnwrapArrayType();
-                    if (ti is ModuleType moduleType)
+                    foreach (var moduleFormalParameter in moduleFormalParameters)
                     {
-                        if (moduleType.Body is ObjectType objectType)
+                        string? defaultValue = (moduleFormalParameter.Modifier as ParameterDefaultValueSyntax)?.DefaultValue?.ToText();
+                        if (defaultValue != null &&
+                            //asdfg
+                            (defaultValue.Contains("resourceGroup().location", LanguageConstants.IdentifierComparison)
+                            || defaultValue.Contains("deployment().location", LanguageConstants.IdentifierComparison)))
                         {
-                            if (objectType.Properties.TryGetValue(LanguageConstants.ModuleParamsPropertyName, out TypeProperty? moduleFormalParamsType))
-                            {
-                                if (moduleFormalParamsType.TypeReference is ObjectType objectType1)
-                                {
-                                    locationFormalParameter = objectType1.Properties.Where(p => StringComparer.OrdinalIgnoreCase.Equals(p.Key, LocationParameterName)).Select(p => p.Value).FirstOrDefault();
-                                }
-                            }
+                            locationFormalParameters.Add(moduleFormalParameter.Name.IdentifierName);
                         }
                     }
 
-                    if (locationFormalParameter != null)
+                    foreach (var parameterName in locationFormalParameters)
                     {
-                        // Found one.  Now look if a value is being passed in for that parameter
+                        // Look if a value is being passed in for this parameter
                         ObjectPropertySyntax? locationActualValue = null;
                         TextSpan errorSpan = syntax.Name.Span; // span will be the params key if it exists, otherwise the module name
 
@@ -163,9 +163,9 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                                 // Look for a parameter value being passed in for the formal parameter that we found
                                 // Be sure the param value we're looking for matches exactly the name/casing for the formal parameter (ordinal)
                                 locationActualValue = paramsObject.Properties.Where(p =>
-                                    StringComparer.Ordinal.Equals(
+                                    LanguageConstants.IdentifierComparer.Equals(
                                         (p.Key as IdentifierSyntax)?.IdentifierName,
-                                        locationFormalParameter.Name))
+                                        parameterName))
                                     .FirstOrDefault();
                             }
                         }
@@ -177,13 +177,13 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                                 parent.CreateDiagnosticForSpan(errorSpan,
                                     String.Format(
                                         CoreResources.NoHardcodedLocation_ModuleLocationNeedsExplicitValue,
-                                        locationFormalParameter.Name,
+                                        parameterName,
                                         syntax.Name.IdentifierName)));
                         }
                         else
                         {
                             // A value has been passed in.  Verify it's an expression or 'global', just like for a resource's location property
-                            VerifyLocationIsExpressionOrGlobal(locationActualValue.Value);
+                            VerifyResourceLocation(locationActualValue.Value);
                         }
                     }
                 }
@@ -226,13 +226,14 @@ namespace Bicep.Core.Analyzers.Linter.Rules
 
                     if (resourceGroupOrDeploymentFunction != null)
                     {
-                        this.diagnostics.Add(
-                            parent.CreateDiagnosticForSpan(syntax.Span,
-                            String.Format(
-                                CoreResources.NoHardcodedLocation_DoNotUseDeploymentOrResourceGroupLocation,
-                                $"{resourceGroupOrDeploymentFunction}().{RGOrDeploymentLocationPropertyName}"
-                                )
-                            ));
+                        string functionCall = $"{resourceGroupOrDeploymentFunction}().{RGOrDeploymentLocationPropertyName}";
+                        string msg = String.Format( //asdfg fixes
+                                                    //asdfg CoreResources.NoHardcodedLocation_DoNotUseDeploymentOrResourceGroupLocation,
+                                "'{0}' should only be used in the default value of a parameter.",
+                                functionCall
+                                );
+                        this.diagnostics.Add(parent.CreateDiagnosticForSpan(syntax.Span, msg));
+                        ;
                     }
                 }
 
@@ -246,29 +247,106 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                     ?.SafeGetPropertyByName(LanguageConstants.ResourceLocationPropertyName)?.Value;
                 if (locationValue != null)
                 {
-                    VerifyLocationIsExpressionOrGlobal(locationValue);
+                    VerifyResourceLocation(locationValue);
                 }
 
                 base.VisitResourceDeclarationSyntax(syntax);
             }
 
-            private void VerifyLocationIsExpressionOrGlobal(SyntaxBase locationValueSyntax)
+            private void VerifyResourceLocation(SyntaxBase locationValueSyntax)
             {
-                // Sub-rule 4: Each resource's location property and each module's location parameter must be either an expression or the string 'global' (usually this expression will be the value of the location parameter)
-                if (locationValueSyntax != null && model.GetTypeInfo(locationValueSyntax) is StringLiteralType literalType)
+                // no-hardcoded-resource-location asdfg
+                // A resource's location should not use a hard-coded string or variable value. It should use a parameter value, an expression or the string 'global'.
+                // Sub-rule 4: Each resource's location property and each module's location parameter must be either an expression or the string 'global' (usually this expression will be the value of the location parameter) asdfg
+
+                //asdfg test: multi-line strings, interpolated strings, strings with escape chars
+                (string? literalValue, VariableSymbol? definingVariable) = TryGetLiteralText(locationValueSyntax);
+
+                if (literalValue != null)
                 {
                     // The value is a string literal.  In that case, it must be "global" (case-insensitive)
-                    if (!StringComparer.OrdinalIgnoreCase.Equals(literalType.RawStringValue, GlobalLocationValue))
+                    if (!StringComparer.OrdinalIgnoreCase.Equals(literalValue, GlobalLocationValue))
                     {
+                        string? fix;
+                        if (definingVariable != null)
+                        {
+                            fix = $"Change variable '{definingVariable.Name}' into a parameter.";
+                        }
+                        else
+                        {
+                            //asdfg find candidate parameters
+                            fix = $"Create new parameter 'location' with value `{literalValue}`.";
+                            fix += " " + $"Change '{literalValue}' into <an existing parameter>."; //asdfg any existing param?
+                        }
+
+                        var msg = String.Format(
+                                //asdff CoreResources.NoHardcodedLocation_ResourceLocationShouldBeExpressionOrGlobal,
+                                //asdfg change to "a resource's location"
+                                "A resource location should not use a hard-coded string or variable value. It should use a parameter value, an expression or the string '{0}'. Found '{1}'",
+                                // asdfg + " AUTO-FIXES AVAILABLE: " + (fix ?? "none"),
+                                GlobalLocationValue,
+                                literalValue);
                         diagnostics.Add(parent.CreateDiagnosticForSpan(
                             locationValueSyntax.Span,
-                            String.Format(
-                                CoreResources.NoHardcodedLocation_ResourceLocationShouldBeExpressionOrGlobal,
-                                GlobalLocationValue,
-                                literalType.RawStringValue)
+                            msg
                         ));
                     }
                 }
+                else
+                {
+                    // Any other value or expression is acceptable
+                }
+            }
+
+            //asdff comment
+            private (string? literalTextValue, VariableSymbol? definingVariable) TryGetLiteralText(SyntaxBase valueSyntax)
+            {
+                if (model.GetTypeInfo(valueSyntax) is StringLiteralType stringLiteral)
+                {
+                    // The type of the expression is a string literal, so either we have a 
+                    if (valueSyntax is StringSyntax stringSyntax)
+                    {
+                        if (!stringSyntax.IsInterpolated())
+                        {
+                            // Simple string literal value, e.g. 'westus'
+
+                            Debug.Assert(stringSyntax.TryGetLiteralValue() == stringLiteral.RawStringValue); //asdfg?                                                                                                             
+                            return (stringLiteral.RawStringValue, null);
+                        }
+                    }
+                    else if (valueSyntax is VariableAccessSyntax variableAccessSyntax
+                            && model.GetSymbolInfo(valueSyntax) is VariableSymbol variableSymbol)
+                    {
+                        var variableDefinitionAssignment = model.GetDeclaredTypeAssignment(valueSyntax);
+                        if (variableDefinitionAssignment?.DeclaringSyntax is VariableDeclarationSyntax declarationSyntax)
+                        {
+                            // We have a variable declaration, e.g. "var a = <value>"
+
+                            //var name = declarationSyntax.Name; // This should be same as variableSymbol.Name
+                            //var namet = model.GetDeclaredType(name);
+                            var value = declarationSyntax.Value;
+                            //var vt = model.GetDeclaredType(value);
+                            var nestedAssignment = TryGetLiteralText(value);
+                            //var v3 = model.GetSymbolInfo(declarationSyntax);
+                            //var v4 = model.GetSymbolInfo(value);
+                            if (nestedAssignment.literalTextValue != null)
+                            {
+                                // We have something like:
+                                //   var a = 'westus'
+                                //   var b = a
+                                // resource ... { location = b }
+                                return (nestedAssignment.literalTextValue, nestedAssignment.definingVariable ?? variableSymbol);
+                            }
+                            else
+                            {
+                                return (null, null);
+                            }
+                        }
+                        return (stringLiteral.RawStringValue, variableSymbol);
+                    }
+                }
+
+                return (null, null);
             }
 
             private bool IsBuiltinFunctionAzCall(FunctionCallSyntax syntax, params string[] expectedFunctionNames)
@@ -299,6 +377,35 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                 }
 
                 return false;
+            }
+
+            // Given a consumed module, e.g.:
+            //   module m1 'module1.bicep' { ... }
+            //
+            // ... Returns the parameters defined in that module's bicep file (in above example module1.bicep)
+            private IEnumerable<ParameterDeclarationSyntax> GetConsumedModuleParameterDefinitionsOrEmpty(ModuleDeclarationSyntax moduleDeclarationSyntax)
+            {
+                //if (model.GetTypeInfo(moduleDeclarationSyntax).UnwrapArrayType() is ModuleType moduleType) //asdfg remove
+                //{
+                //    if (moduleType.Body is ObjectType objectType)
+                //    {
+                //        if (objectType.Properties.TryGetValue(LanguageConstants.ModuleParamsPropertyName, out TypeProperty? moduleFormalParamsType))
+                //        {
+                //            if (moduleFormalParamsType.TypeReference is ObjectType moduleParamDefinitionsObject)
+                //            {
+                //                //return moduleParamDefinitionsObject.Properties.Values;
+                //            }
+                //        }
+                //    }
+                //}
+
+                if (model.Compilation.SourceFileGrouping.LookUpModuleSourceFile(moduleDeclarationSyntax) is BicepFile bicepFile)
+                {
+                    return bicepFile.ProgramSyntax.Declarations.OfType<ParameterDeclarationSyntax>();
+                }
+
+
+                return Enumerable.Empty<ParameterDeclarationSyntax>();
             }
         }
     }

@@ -63,6 +63,166 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             );
         }
 
+        //asdfg
+        [TestMethod]
+        public void test0()
+        {
+            var result = CompilationHelper.Compile(@"
+                resource storageaccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
+                  name: 'name'
+                  location: 'westus'
+                  kind: 'StorageV2'
+                  sku: {
+                    name: 'Premium_LRS'
+                  }
+                }
+            ");
+
+            result.Diagnostics.Should().HaveDiagnostics(new[]
+            {
+                (NoHardcodedLocationRule.Code, DiagnosticLevel.Warning, "A resource location should not use a hard-coded string or variable value. It should use a parameter value, an expression or the string 'global'. Found 'westus'" +
+                "")
+            });
+        }
+
+        [TestMethod]
+        public void test1()
+        {
+            var result = CompilationHelper.Compile(@"
+                var location = 'westus'
+
+                resource storageaccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
+                  name: 'name'
+                  location: location
+                  kind: 'StorageV2'
+                  sku: {
+                    name: 'Premium_LRS'
+                  }
+                }
+            ");
+
+            result.Diagnostics.Should().HaveDiagnostics(new[]
+            {
+                (NoHardcodedLocationRule.Code, DiagnosticLevel.Warning, "A resource location should not use a hard-coded string or variable value. It should use a parameter value, an expression or the string 'global'. Found 'westus'")
+            });
+        }
+
+        [TestMethod]
+        public void test2()
+        {
+            var result = CompilationHelper.Compile(@"
+                var location = 'westus'
+                var location2 = location
+
+                resource storageaccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
+                  name: 'name'
+                  location: location2
+                  kind: 'StorageV2'
+                  sku: {
+                    name: 'Premium_LRS'
+                  }
+                }
+            ");
+
+            result.Diagnostics.Should().HaveDiagnostics(new[]
+            {
+                (NoHardcodedLocationRule.Code, DiagnosticLevel.Warning, "A resource location should not use a hard-coded string or variable value. It should use a parameter value, an expression or the string 'global'. Found 'westus'")
+            });
+        }
+
+        [TestMethod]
+        public void test3()
+        {
+            var result = CompilationHelper.Compile(@"
+                var location = 'westus'
+                var location2 = location
+                var location3 = location2
+
+                resource storageaccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
+                  name: 'name'
+                  location: location3
+                  kind: 'StorageV2'
+                  sku: {
+                    name: 'Premium_LRS'
+                  }
+                }
+            ");
+
+            result.Diagnostics.Should().HaveDiagnostics(new[]
+            {
+                (NoHardcodedLocationRule.Code, DiagnosticLevel.Warning, "A resource location should not use a hard-coded string or variable value. It should use a parameter value, an expression or the string 'global'. Found 'westus'")
+            });
+        }
+
+        [TestMethod]
+        public void test4pass()
+        {
+            var result = CompilationHelper.Compile(@"
+                param location string = 'global'
+                var location2 = location
+                var location3 = location2
+
+                resource storageaccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
+                  name: 'name'
+                  location: location3
+                  kind: 'StorageV2'
+                  sku: {
+                    name: 'Premium_LRS'
+                  }
+                }
+            ");
+
+            result.Diagnostics.Should().NotHaveAnyDiagnostics();
+        }
+
+        [TestMethod]
+        public void test5pass()
+        {
+            var result = CompilationHelper.Compile(@"
+                var location = 'westus'
+                var location2 = '${location} 2'
+                var location3 = location2
+
+                resource storageaccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
+                  name: 'name'
+                  location: location3
+                  kind: 'StorageV2'
+                  sku: {
+                    name: 'Premium_LRS'
+                  }
+                }
+            ");
+
+            result.Diagnostics.Should().NotHaveAnyDiagnostics();
+        }
+
+        [TestMethod]
+        public void test6pass()
+        {
+            var result = CompilationHelper.Compile(@"
+                var location = 'westus'
+                var location2 = true ? location : location
+                var location3 = location2
+
+                resource storageaccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
+                  name: 'name'
+                  location: location3
+                  kind: 'StorageV2'
+                  sku: {
+                    name: 'Premium_LRS'
+                  }
+                }
+            ");
+
+            result.Diagnostics.Should().NotHaveAnyDiagnostics();
+        }
+
+
+
+
+
+
+
         /////////////////////////////////////////////////////////////////////////////////////
         // SUBRULE: The expressions `deployment().location` and `resourceGroup().location` may only be used as the default value of a parameter named `location` (case-insensitive), and nowhere else in the template
         /////////////////////////////////////////////////////////////////////////////////////
@@ -291,8 +451,10 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         // SUBRULE: When consuming a module, the module's `location` parameter must be given a value (it may not be left as its default value)
         /////////////////////////////////////////////////////////////////////////////////////3
 
+        //asdfg test: multiple params (formal and actual)
+
         [TestMethod]
-        public void ModLoc_If_ModuleHas_NoLocationParam_ShouldPass()
+        public void ModuleLoc_If_ModuleHas_NoLocationParam_ShouldPass()
         {
             var result = CompilationHelper.Compile(
                 ("main.bicep", @"
@@ -313,7 +475,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         }
 
         [TestMethod]
-        public void ModLoc_If_ModuleHas_LocationParam_WithoutDefault_AndValuePassedIn_ShouldPass()
+        public void ModuleLoc_If_ModuleHas_LocationParam_WithoutDefault_AndValuePassedIn_ShouldPass()
         {
             var result = CompilationHelper.Compile(
                 ("main.bicep", @"
@@ -337,7 +499,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         }
 
         [TestMethod]
-        public void ModLoc_If_ModuleHas_LocationParam_WithoutDefault_AndValueNotPassedIn_ShouldFail()
+        public void ModuleLoc_If_ModuleHas_LocationParam_WithoutDefault_AndValueNotPassedIn_ShouldHaveCompilerError()
         {
             var result = CompilationHelper.Compile(
                 ("main.bicep", @"
@@ -359,12 +521,11 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             result.Diagnostics.Should().HaveDiagnostics(new[]
             {
                 ("BCP035", DiagnosticLevel.Error, "The specified \"object\" declaration is missing the following required properties: \"location\"."),
-                (NoHardcodedLocationRule.Code, DiagnosticLevel.Warning, "The 'location' parameter for module 'm2' should be assigned an explicit value.")
             });
         }
 
         [TestMethod]
-        public void ModLoc_If_ModuleHas_LocationParam_WithDefault_AndValuePassedIn_ShouldPass()
+        public void ModuleLoc_If_ModuleHas_LocationParam_WithRGLocationDefault_AndValuePassedIn_ShouldPass() //asdfg
         {
             var result = CompilationHelper.Compile(
                 ("main.bicep", @"
@@ -373,46 +534,49 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     module m1 'module1.bicep' = {
                       name: 'm1'
                       params: {
-                        location: location
+                        p1: location
                       }
                     }
 
                     output o string = location
                     "),
                 ("module1.bicep", @"
-                    param location string
-                    output o string = location
+                    param p1 string = resourceGroup().location
+                    output o string = p1
                    ")
             );
             result.Diagnostics.Should().BeEmpty();
         }
 
         [TestMethod]
-        public void ModLoc_If_ModuleHas_LocationParam_WithDefault_AndValuePassedIn_CaseInsensitive_ShouldPass()
+        public void ModuleLoc_If_ModuleHas_LocationParam_WithDeploymentLocDefault_AndValuePassedIn_ShouldPass()
         {
             var result = CompilationHelper.Compile(
                 ("main.bicep", @"
+                    targetScope = 'subscription'
+
                     param location string
 
                     module m1 'module1.bicep' = {
                       name: 'm1'
                       params: {
-                        LOCATION: location
+                        p1: location
                       }
                     }
 
                     output o string = location
                     "),
                 ("module1.bicep", @"
-                    param LOCATION string
-                    output o string = LOCATION
+                    targetScope = 'subscription'
+                    param p1 string = deployment().location
+                    output o string = p1
                    ")
             );
             result.Diagnostics.Should().BeEmpty();
         }
 
         [TestMethod]
-        public void ModLoc_If_ModuleHas_LocationParam_WithDefault_AndValueNotPassedIn_ShouldFail()
+        public void ModuleLoc_If_ModuleHas_LocationParam_WithRGLocationDefault_AndValueNotPassedIn_ShouldFail()
         {
             var result = CompilationHelper.Compile(
                 ("main.bicep", @"
@@ -421,27 +585,30 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     module m3 'module1.bicep' = {
                       name: 'm1'
                       params: {
+                        // FAILURE: p1 not passed in
                       }
                     }
 
                     output o string = location
                     "),
                 ("module1.bicep", @"
-                    param Location string = resourceGroup().location
-                    output o string = Location
+                    param p1 string = resourceGroup().location
+                    output o string = p1
                    ")
             );
             result.Diagnostics.Should().HaveDiagnostics(new[]
             {
-                (NoHardcodedLocationRule.Code, DiagnosticLevel.Warning, "The 'Location' parameter for module 'm3' should be assigned an explicit value.")
+                (NoHardcodedLocationRule.Code, DiagnosticLevel.Warning, "The 'p1' parameter for module 'm3' should be assigned an explicit value.")
             });
         }
 
         [TestMethod]
-        public void ModLoc_If_ModuleHas_LocationParam_WithDefault_AndValueNotPassedIn_CaseInsensitive_ShouldFail()
+        public void ModuleLoc_If_ModuleHas_LocationParam_WithDeploymentLocDefault_AndValueNotPassedIn_CaseInsensitive_ShouldFail()
         {
             var result = CompilationHelper.Compile(
                 ("main.bicep", @"
+                    targetScope = 'subscription'
+
                     param location string
 
                     module m1 'module1.bicep' = {
@@ -453,19 +620,20 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     output o string = location
                     "),
                 ("module1.bicep", @"
-                    param LOCATION string = resourceGroup().location
-                    output o string = LOCATION
+                    targetScope = 'subscription'
+                    param myParam string = deployment().location   //asdfg test: with expression, with deployment().xxx
+                    output o string = myParam
                    ")
             );
             result.Diagnostics.Should().HaveDiagnostics(new[]
             {
-                (NoHardcodedLocationRule.Code, DiagnosticLevel.Warning, "The 'LOCATION' parameter for module 'm1' should be assigned an explicit value.")
+                (NoHardcodedLocationRule.Code, DiagnosticLevel.Warning, "The 'myParam' parameter for module 'm1' should be assigned an explicit value.")
 
             });
         }
 
         [TestMethod]
-        public void ModLoc_If_Module_HasErrors_LocationParam_WithDefault_AndValuePassedIn_CaseInsensitive_ShouldPass()
+        public void ModuleLoc_If_Module_HasErrors_LocationParam_WithDefault_AndValuePassedIn_CaseInsensitive_ShouldPass() //asdfg
         {
             var result = CompilationHelper.Compile(
                 ("main.bicep", @"
@@ -588,7 +756,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             result.Diagnostics.Should().HaveDiagnostics(new[]
             {
-                (NoHardcodedLocationRule.Code, DiagnosticLevel.Warning, "A resource location should be either an expression or the string 'global'. Found 'non-global'")
+                (NoHardcodedLocationRule.Code, DiagnosticLevel.Warning, "A resource location should not use a hard-coded string or variable value. It should use a parameter value, an expression or the string 'global'. Found 'non-global'")
 
             });
         }
@@ -611,8 +779,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             result.Diagnostics.Should().HaveDiagnostics(new[]
             {
-                (NoHardcodedLocationRule.Code, DiagnosticLevel.Warning, "A resource location should be either an expression or the string 'global'. Found 'non-global'")
-
+                (NoHardcodedLocationRule.Code, DiagnosticLevel.Warning, "A resource location should not use a hard-coded string or variable value. It should use a parameter value, an expression or the string 'global'. Found 'non-global'")
             });
         }
 
@@ -636,7 +803,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             result.Diagnostics.Should().HaveDiagnostics(new[]
             {
-                (NoHardcodedLocationRule.Code, DiagnosticLevel.Warning, "A resource location should be either an expression or the string 'global'. Found 'westus'")
+                (NoHardcodedLocationRule.Code, DiagnosticLevel.Warning, "A resource location should not use a hard-coded string or variable value. It should use a parameter value, an expression or the string 'global'. Found 'westus'")
             });
         }
 
@@ -660,7 +827,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             result.Diagnostics.Should().HaveDiagnostics(new[]
             {
-                (NoHardcodedLocationRule.Code, DiagnosticLevel.Warning, "Use a parameter named `location` here instead of 'resourceGroup().location'. 'resourceGroup().location' should only be used as a default for parameter `location`.")
+                (NoHardcodedLocationRule.Code, DiagnosticLevel.Warning, "'resourceGroup().location' should only be used in the default value of a parameter.")
             });
         }
 
@@ -684,7 +851,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             result.Diagnostics.Should().HaveDiagnostics(new[]
             {
-                (NoHardcodedLocationRule.Code, DiagnosticLevel.Warning, "A resource location should be either an expression or the string 'global'. Found 'westus'")
+                (NoHardcodedLocationRule.Code, DiagnosticLevel.Warning, "A resource location should not use a hard-coded string or variable value. It should use a parameter value, an expression or the string 'global'. Found 'westus'")
             });
         }
 

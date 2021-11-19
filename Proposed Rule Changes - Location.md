@@ -1,66 +1,165 @@
-A parameter is a "location parameter" if:
-        1) it's used inside a resource's top-level 'location' property (what abou deeper such properties?)
-        2) ?? it has a default value that uses resourceGroup().location or deployment().location
+# Rules
 
-# Principles
-1: BP: don't use hard-coded strings for locations ('location' property of a resource)
-EXCEPTION: 'global'
-  What it means: check value of all 'location' properties of resources, if it is a literal **or a variable that is a literal**, that's a failure.
+## no-hardcoded-resource-location
 
-  ISSUE: Does this apply to param? (we think No)
-  I.e.:
-  param location = 'westus'
-    BAD:
-        resource storageaccount2 'Microsoft.Storage/storageAccounts@2021-02-01' = {
-        location: 'uswest'
-        }
+A resource's location should not use a hard-coded string or variable value. It should use a parameter value, an expression or the string 'global'.
 
-  ALSO BAD:
-    var location = 'westus'
-    resource storageaccount... {
-        location: location
+### AUTO-FIXES AVAILABLE
+* Change variable '{variable}' into a parameter
+* Place '{literalValue}' into a new parameter
+* Change '{literalValue}' to '{existing-parameter-with-same-value}
 
-2: Don't use resourcGroup().location/deployment().location directly except in default value of a parameter
-  OK: Using deployment().location for a deployments resource location?  (not a scenario to encourage in bicep, does this apply to modules?)
+### Examples
 
-   BAD: var location = resourceGroup().location
-         ISSUE: What if rule #3 is disabled?
-   BAD: resource { location = resourceGroup().location; }
-   ? BAD: resource { location = resourceGroup().location; }
-   OK:
-        param location string = resourceGroup().location
-        param location2 string = resourceGroup().location
+FAIL:
+  resource storageaccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
+    location: 'uswest'
+  }
+  Error: Do not use a hard-coded **string** for a resource's location property (except for 'global')
+  Auto-fixes:
+    * Create a new parameter for 'uswest'
+      ['location' by default]
+    * Change 'uswest' to '{existing-parameter-with-same-value}'
+      asdfg: Which parameters exactly do we show?
 
-3: BP: param instead of var for "location parameters" (NEEDED? - just a different error message?)
-  Details: for a "location" parameter (for variables that are used inside a location expression, see modules)
-  TODO: How does this tie in with #1?
 
-  BAD: var location = resourceGroup().location
-    suggest: param location = resourceGroup().location
+FAIL:
+  var location = 'westus'
+  resource storageaccount... {
+      location: location
+  Error: Do not use a hard-coded **variable** for a resource's location property (except for 'global')
+  Auto-fix: Turn 'location' into a parameter
 
-    "we would recommend that you make this a param so it has a default value and is able to be modified"
+FAIL:
+  var location = 'westus'
+  var storageLocation = location
+  resource storageaccount... {
+      location: storageLocation
+  Error: Do not use a hard-coded **string** for a resource's location property (except for 'global')
+  Error: "A resource location should be a parameter value, an expression or the string '{0}'. It should not be a hard-coded string or variable value. Found '{1}'", //asdff
+  Auto-fix: Turn 'location' into a parameter **????** asdff
 
-4: Modules: A "location parameter" inside a module as a location must be given an explicit value when consumed (it can't be left as default).
+PASS:
+  resource storageaccountt 'Microsoft.Storage/storageAccounts@2021-02-01' = {
+    location: 'global'
+  }
+
+PASS:
+  var location = 'GLOBAL'
+  resource storageaccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
+    location: location
+  }
+
+PASS:
+  param myLocationParameter = resourceGroup().location
+  resource storageaccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
+    location: myLocationParameter
+  }
+
+### Expressions are okay
+PASS:
+  resource storageaccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
+    location: condition ? 'West US' : 'West US 2'
+  }
+
+PASS:
+  var locations = [
+    'West US'
+    'East US'
+  ]
+  resource storageaccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
+    location: locations[i]
+  }
+
+  var location = anyexpression()
+  resource storageaccount 'Microsoft.Storage/storageAccounts@2021-06-01' = {
+    location: location
+  }
+
+## no-calls-to-resourcegroup-or-deployment-location-outside-params
+
+`resourceGroup().location` and `deployment().location` should only be used in the default value of a parameter.
+
+asdfg ask Brian: param p2 string = 'westus'
+
+### AUTO-FIXES AVAILABLE
+* Change variable '{variable}' into a parameter.
+  (for scenario `var location = resourceGroup().location`)
+* Place '{resourceGroup()/deployment().location}' into a new parameter
+* Change '{resourceGroup()/deployment().location}' to '{existing-parameter-with-same-value}'
+
+### Examples
+
+FAIL:
+  var v1 = anyexpression(resourceGroup().location)
+
+PASS:
+  param p1 string location = resourceGroup().location
+
+FAIL:
+  resource ... {
+    location: anyexpression(resourceGroup().location)
+  }
+
+## use-explicit-values-for-location-params-in-modules
+
+If a parameter in a module uses resourceGroup().location or deployment().location in its default value, an explicit value must be passed in when consuming the module. asdfg explain
+
+### Examples
+
+Error: 
+Fixes:
+  1) Pass in '{param-with-resourceGroupOrDeploymentLocation-in-default-value}' 
+FAIL:
    module1.bicep:
-     param somevalue string = resourceGroup().location   <<< counts as location parameter and has a default value
+     param someParam string = resourceGroup().location   <<< has a default value referencing resourceGroup().location
      resource ... {
-       location: somevalue
+       location: someParam
      }
    main.bicep:
+     param p1 string
+     param p2 string
+     param p3 string = resourceGroup().location
+     param rgLocation string
+
+     resource ... {
+       location: p2
+     }
      module m1 "module1.bicep" {
        params: {
-         // BAD: "somevalue" isn't being given an explicit value
+         // FAILS: "someParam" isn't being given an explicit value, so it will default to resourceGroup().location, possibly causing
+         //   unintended behavior
+         // AUTO-FIXES:
+         //   * Create new parameter `location`, add `someParam: location`
+         //   * Add `someParam: p2`   (because p2 is used as a resource's location)
+         //   * Add `someParam: p3`   (because p3 defaults to resourceGroup().location)
+         //   * Add `someParam: rgLocation`   (because rgLocation has 'location' in the name)
        }
      }
 
-10: [style] One of the location parameters should be called 'location' (off by default) (??)
+PASS:
+   main.bicep:
+     param p1 string
+     module m1 "module1.bicep" {
+       params: {
+         someParam: p1
+       }
+     }
+
+
+
+
+asdfg module to json file?
+
+
+
 
 ISSUE: How far data flow analysis (essentially type inference?)
 
 E.g. 
   param location1 string = resourceGroup().location   <== counts as location parameter because references resourceGroup.location
   param location2 string  =             <== counts as location parameter becaused used in assignment of resource "location" property
-  var myLocation = if(condition1, location1, location2)
+  var myLocation = condition1 ? location1 : location2
   resource ... {
     location: myLocation
   }
