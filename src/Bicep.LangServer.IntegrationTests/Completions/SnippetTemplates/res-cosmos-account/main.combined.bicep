@@ -15,7 +15,6 @@ param location string
 resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2021-03-15' = {
   name: 'name'
   location: 'location'
-//@[12:22) [no-hardcoded-location (Warning)] A resource location should be either an expression or the string 'global'. Found 'location' (CodeDescription: bicep core(https://aka.ms/bicep/linter/no-hardcoded-location)) |'location'|
   kind: 'GlobalDocumentDB'
   properties: {
     consistencyPolicy: {

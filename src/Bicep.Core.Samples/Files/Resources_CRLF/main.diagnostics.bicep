@@ -3,7 +3,6 @@
 resource basicStorage 'Microsoft.Storage/storageAccounts@2019-06-01' = {
   name: 'basicblobs'
   location: 'westus'
-//@[12:20) [no-hardcoded-location (Warning)] A resource location should be either an expression or the string 'global'. Found 'westus' (CodeDescription: bicep core(https://aka.ms/bicep/linter/no-hardcoded-location)) |'westus'|
   kind: 'BlobStorage'
   sku: {
     name: 'Standard_GRS'
@@ -19,7 +18,6 @@ resource dnsZone 'Microsoft.Network/dnszones@2018-05-01' = {
 resource myStorageAccount 'Microsoft.Storage/storageAccounts@2017-10-01' = {
   name: 'myencryptedone'
   location: 'eastus2'
-//@[12:21) [no-hardcoded-location (Warning)] A resource location should be either an expression or the string 'global'. Found 'eastus2' (CodeDescription: bicep core(https://aka.ms/bicep/linter/no-hardcoded-location)) |'eastus2'|
   properties: {
     supportsHttpsTrafficOnly: true
     accessTier: 'Hot'
@@ -44,7 +42,6 @@ resource myStorageAccount 'Microsoft.Storage/storageAccounts@2017-10-01' = {
 resource withExpressions 'Microsoft.Storage/storageAccounts@2017-10-01' = {
   name: 'myencryptedone2'
   location: 'eastus2'
-//@[12:21) [no-hardcoded-location (Warning)] A resource location should be either an expression or the string 'global'. Found 'eastus2' (CodeDescription: bicep core(https://aka.ms/bicep/linter/no-hardcoded-location)) |'eastus2'|
   properties: {
     supportsHttpsTrafficOnly: !false
     accessTier: true ? 'Hot' : 'Cold'
@@ -77,7 +74,6 @@ param appServicePlanTier string
 param appServicePlanInstances int
 
 var location = resourceGroup().location
-//@[15:39) [no-hardcoded-location (Warning)] Use a parameter named `location` here instead of 'resourceGroup().location'. 'resourceGroup().location' should only be used as a default for parameter `location`. (CodeDescription: bicep core(https://aka.ms/bicep/linter/no-hardcoded-location)) |resourceGroup().location|
 
 resource farm 'Microsoft.Web/serverFarms@2019-08-01' = {
   // dependsOn: resourceId('Microsoft.DocumentDB/databaseAccounts', cosmosAccountName)
@@ -242,7 +238,6 @@ param shouldDeployVm bool = true
 resource vmWithCondition 'Microsoft.Compute/virtualMachines@2020-06-01' = if (shouldDeployVm) {
   name: 'vmName'
   location: 'westus'
-//@[12:20) [no-hardcoded-location (Warning)] A resource location should be either an expression or the string 'global'. Found 'westus' (CodeDescription: bicep core(https://aka.ms/bicep/linter/no-hardcoded-location)) |'westus'|
   properties: {
     osProfile: {
       windowsConfiguration: {
@@ -416,7 +411,6 @@ resource singleLockOnFirstZone 'Microsoft.Authorization/locks@2016-09-01' = {
 
 resource p1_vnet 'Microsoft.Network/virtualNetworks@2020-06-01' = {
   location: resourceGroup().location
-//@[12:36) [no-hardcoded-location (Warning)] Use a parameter named `location` here instead of 'resourceGroup().location'. 'resourceGroup().location' should only be used as a default for parameter `location`. (CodeDescription: bicep core(https://aka.ms/bicep/linter/no-hardcoded-location)) |resourceGroup().location|
   name: 'myVnet'
   properties: {
     addressSpace: {

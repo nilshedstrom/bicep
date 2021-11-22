@@ -45,10 +45,8 @@ output myArr array = [
 ]
 
 output rgLocation string = resourceGroup().location
-//@[27:51) [no-hardcoded-location (Warning)] Use a parameter named `location` here instead of 'resourceGroup().location'. 'resourceGroup().location' should only be used as a default for parameter `location`. (CodeDescription: bicep core(https://aka.ms/bicep/linter/no-hardcoded-location)) |resourceGroup().location|
 
 output isWestUs bool = resourceGroup().location != 'westus' ? false : true
-//@[23:47) [no-hardcoded-location (Warning)] Use a parameter named `location` here instead of 'resourceGroup().location'. 'resourceGroup().location' should only be used as a default for parameter `location`. (CodeDescription: bicep core(https://aka.ms/bicep/linter/no-hardcoded-location)) |resourceGroup().location|
 
 output expressionBasedIndexer string = {
   eastus: {
@@ -58,7 +56,6 @@ output expressionBasedIndexer string = {
     foo: false
   }
 }[resourceGroup().location].foo
-//@[2:26) [no-hardcoded-location (Warning)] Use a parameter named `location` here instead of 'resourceGroup().location'. 'resourceGroup().location' should only be used as a default for parameter `location`. (CodeDescription: bicep core(https://aka.ms/bicep/linter/no-hardcoded-location)) |resourceGroup().location|
 
 var secondaryKeyIntermediateVar = listKeys(resourceId('Mock.RP/type', 'steve'), '2020-01-01').secondaryKey
 

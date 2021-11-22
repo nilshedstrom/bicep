@@ -3,7 +3,6 @@ targetScope = 'subscription'
 resource rg 'Microsoft.Resources/resourceGroups@2020-06-01' = {
   name: 'adotfrank-rg'
   location: deployment().location
-//@[12:33) [no-hardcoded-location (Warning)] Use a parameter named `location` here instead of 'deployment().location'. 'deployment().location' should only be used as a default for parameter `location`. (CodeDescription: bicep core(https://aka.ms/bicep/linter/no-hardcoded-location)) |deployment().location|
 }
 
 module appPlanDeploy 'br:mock-registry-one.invalid/demo/plan:v2' = {
@@ -37,7 +36,6 @@ module siteDeploy 'br:mock-registry-two.invalid/demo/site:v3' = [for site in web
   name: '${site.name}siteDeploy'
   scope: rg
   params: {
-//@[2:8) [no-hardcoded-location (Warning)] The 'location' parameter for module 'siteDeploy' should be assigned an explicit value. (CodeDescription: bicep core(https://aka.ms/bicep/linter/no-hardcoded-location)) |params|
     appPlanId: appPlanDeploy.outputs.planId
     namePrefix: site.name
     dockerImage: 'nginxdemos/hello'
@@ -49,7 +47,6 @@ module siteDeploy2 'br/demo-two:site:v3' = [for site in websites: {
   name: '${site.name}siteDeploy2'
   scope: rg
   params: {
-//@[2:8) [no-hardcoded-location (Warning)] The 'location' parameter for module 'siteDeploy2' should be assigned an explicit value. (CodeDescription: bicep core(https://aka.ms/bicep/linter/no-hardcoded-location)) |params|
     appPlanId: appPlanDeploy.outputs.planId
     namePrefix: site.name
     dockerImage: 'nginxdemos/hello'
@@ -62,7 +59,6 @@ module storageDeploy 'ts:00000000-0000-0000-0000-000000000000/test-rg/storage-sp
   scope: rg
   params: {
     location: 'eastus'
-//@[14:22) [no-hardcoded-location (Warning)] A resource location should be either an expression or the string 'global'. Found 'eastus' (CodeDescription: bicep core(https://aka.ms/bicep/linter/no-hardcoded-location)) |'eastus'|
   }
 }
 
@@ -71,7 +67,6 @@ module storageDeploy2 'ts/mySpecRG:storage-spec:1.0' = {
   scope: rg
   params: {
     location: 'eastus'
-//@[14:22) [no-hardcoded-location (Warning)] A resource location should be either an expression or the string 'global'. Found 'eastus' (CodeDescription: bicep core(https://aka.ms/bicep/linter/no-hardcoded-location)) |'eastus'|
   }
 }
 
