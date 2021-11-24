@@ -113,18 +113,6 @@ namespace Bicep.Core {
             }
         }
         
-        internal static string NoHardcodedLocation_LocationMustBeTypeString {
-            get {
-                return ResourceManager.GetString("NoHardcodedLocation_LocationMustBeTypeString", resourceCulture);
-            }
-        }
-        
-        internal static string NoHardcodedLocation_LocationMustBeTypeString_FixDescription {
-            get {
-                return ResourceManager.GetString("NoHardcodedLocation_LocationMustBeTypeString_FixDescription", resourceCulture);
-            }
-        }
-        
         internal static string NoHardcodedLocation_DoNotUseDeploymentOrResourceGroupLocation {
             get {
                 return ResourceManager.GetString("NoHardcodedLocation_DoNotUseDeploymentOrResourceGroupLocation", resourceCulture);

@@ -1,109 +1,136 @@
 # Rules
 
-## no-hardcoded-resource-location
+## RULE: no-hardcoded-resource-location
 
-A resource's location should not use a hard-coded string or variable value. It should use a parameter value, an expression or the string 'global'.
+A resource's location should not use a hard-coded string or variable value. It should use a parameter, an expression (but not `resourceGroup().location` or `deployment().location`) or the string 'global'.
+
+Best practice suggests that to set your resources' locations, your template should have a string parameter named `location`. This parameter may default to the resource group or deployment location.
+
+Template users may have limited access to regions where they can create resources. A hard-coded resource location might block users from creating a resource, thus preventing them from using the template. By providing a location parameter that defaults to the resource group location, users can use the default value when convenient but also specify a different location.
 
 ### AUTO-FIXES AVAILABLE
 * Change variable '{variable}' into a parameter
 * Place '{literalValue}' into a new parameter
-* Change '{literalValue}' to '{existing-parameter-with-same-value}
+* Change '{literalValue}' to '{existing-parameter}
 
-### Examples
-
-FAIL:
-  resource storageaccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
-    location: 'uswest'
-  }
-  Error: Do not use a hard-coded **string** for a resource's location property (except for 'global')
-  Auto-fixes:
-    * Create a new parameter for 'uswest'
-      ['location' by default]
-    * Change 'uswest' to '{existing-parameter-with-same-value}'
-      asdfg: Which parameters exactly do we show?
-
+### Examples: Variable should be a parameter
 
 FAIL:
   var location = 'westus'
-  resource storageaccount... {
+  resource stg 'Microsoft.Storage/storageAccounts@2021-02-01' = {
       location: location
-  Error: Do not use a hard-coded **variable** for a resource's location property (except for 'global')
-  Auto-fix: Turn 'location' into a parameter
+  }
+
+  Error: A resource's location should not use a hard-coded string or variable value. It should use a parameter value, an expression or the string 'global'. Recommendation: Change variable 'location' into a parameter.
+  Auto-fixes:
+    * Change variable 'location' into a parameter.
 
 FAIL:
-  var location = 'westus'
-  var storageLocation = location
-  resource storageaccount... {
+  var v1 = 'westus'
+  var v2 = v1
+  resource stg 'Microsoft.Storage/storageAccounts@2021-02-01' = {
       location: storageLocation
-  Error: Do not use a hard-coded **string** for a resource's location property (except for 'global')
-  Error: "A resource location should be a parameter value, an expression or the string '{0}'. It should not be a hard-coded string or variable value. Found '{1}'", //asdff
-  Auto-fix: Turn 'location' into a parameter **????** asdff
+  }
+
+  Error: A resource's location should not use a hard-coded string or variable value. It should use a parameter value, an expression or the string 'global'. Recommendation: Change variable 'v1' into a Error: "A resource location should be a parameter value, an expression or the string '{0}'. It should not be a hard-coded string or variable value. Found '{1}'", //asdff
+  Auto-fixes:
+    * Change variable 'location' into a parameter.
+
+### Examples: Should use a parameter instead of literal string
+
+FAIL:
+  resource stg 'Microsoft.Storage/storageAccounts@2021-02-01' = {
+    location: 'westus'
+  }
+
+  Error: A resource's location should not use a hard-coded string or variable value. It should use a parameter value, an expression or the string 'global'. Recommendation: Use a new or existing parameter.
+  Auto-fixes:
+    * Create a new parameter for 'westus' with default value 'westus'
+    * Use existing parameter '<existing-parameter>' which has default value '<value>'
+
+### Examples: Passing
 
 PASS:
-  resource storageaccountt 'Microsoft.Storage/storageAccounts@2021-02-01' = {
+  resource stg 'Microsoft.Storage/storageAccounts@2021-02-01' = {
     location: 'global'
   }
 
 PASS:
   var location = 'GLOBAL'
-  resource storageaccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
+  resource stg 'Microsoft.Storage/storageAccounts@2021-02-01' = {
     location: location
   }
 
 PASS:
-  param myLocationParameter = resourceGroup().location
-  resource storageaccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
-    location: myLocationParameter
+  param p1 string = resourceGroup().location
+  resource stg 'Microsoft.Storage/storageAccounts@2021-02-01' = {
+    location: p1
   }
 
-### Expressions are okay
-PASS:
-  resource storageaccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
-    location: condition ? 'West US' : 'West US 2'
+PASS (expression):
+  param condition bool
+  resource stg 'Microsoft.Storage/storageAccounts@2021-02-01' = {
+    location: condition ? 'WestUS' : 'WestUS2'
   }
 
-PASS:
+PASS (expression):
   var locations = [
-    'West US'
-    'East US'
+    'WestUS'
+    'EastUS'
   ]
-  resource storageaccount 'Microsoft.Storage/storageAccounts@2021-02-01' = {
+  resource stg 'Microsoft.Storage/storageAccounts@2021-02-01' = [for i in range(0, 10): {
+    name: 'name${i}'
     location: locations[i]
-  }
+    kind: 'StorageV2'
+    sku: {
+      name: 'Premium_LRS'
+    }
+  }]
 
-  var location = anyexpression()
-  resource storageaccount 'Microsoft.Storage/storageAccounts@2021-06-01' = {
-    location: location
-  }
+## RULE: no-calls-to-resourcegroup-or-deployment-location-outside-parameters
 
-## no-calls-to-resourcegroup-or-deployment-location-outside-params
+`resourceGroup().location` and `deployment().location` should only be used as the default value of a parameter.
 
-`resourceGroup().location` and `deployment().location` should only be used in the default value of a parameter.
+Template users may have limited access to regions where they can create resources. The expressions `resourceGroup().location` or `deployment().location` could block users if the resource group or deployment was created in a region the user can't access, thus preventing them from using the template.
 
-asdfg ask Brian: param p2 string = 'westus'
+Best practice suggests that to set your resources' locations, your template should have a string parameter named `location`. By providing a location parameter that defaults to the resource group or deployment location instead of calling these directly elsewhere in the template, users can use the default value when convenient but also specify a different location.
 
 ### AUTO-FIXES AVAILABLE
-* Change variable '{variable}' into a parameter.
+* Change variable '{variable}' into a parameter
   (for scenario `var location = resourceGroup().location`)
-* Place '{resourceGroup()/deployment().location}' into a new parameter
-* Change '{resourceGroup()/deployment().location}' to '{existing-parameter-with-same-value}'
+* Create a new parameter 'location' with default value '{resourceGroup()/deployment().location}'
+* Use existing '{existing-parameter-with-same-default-value}'
 
 ### Examples
 
+PASS:
+  param location string = resourceGroup().location
+
 FAIL:
   var v1 = anyexpression(resourceGroup().location)
-
-PASS:
-  param p1 string location = resourceGroup().location
-
+  
 FAIL:
   resource ... {
     location: anyexpression(resourceGroup().location)
   }
 
-## use-explicit-values-for-location-params-in-modules
+## RULE: use-explicit-values-for-location-params-in-modules
 
-If a parameter in a module uses resourceGroup().location or deployment().location in its default value, an explicit value must be passed in when consuming the module. asdfg explain
+  If a parameter in a module uses resourceGroup().location or deployment().location in its default value, it must be assigned an explicit value when the module is consumed.
+  **ISSUE:** What is the exact rule?
+    Maybe: When consuming a module, any location-related parameters that have a default value must be assigned an explicit values.
+
+  Location-related parameters include parameters that have a default referencing resourceGroup().location or deployment().location and any parameter that is referenced from a resource's location property.
+  **ISSUE:** Should it only be paramers referenced from a resource's location property?  Or only those referencing resourceGroup().location or deployment().location?
+
+
+  In the main template, azuredeploy.json or mainTemplate.json, this parameter can default to the resource group location. In linked or nested templates, the location parameter shouldn't have a default location.
+
+A 
+Template users may have limited access to regions where they can create resources. 
+A hard-coded resource location might block users from creating a resource. The "[resourceGroup().location]" expression could block users if the resource group was created in a region the user can't access. Users who are blocked are unable to use the template.
+
+By providing a location parameter that defaults to the resource group location, users can use the default value when convenient but also specify a different location.
 
 ### Examples
 
@@ -112,10 +139,17 @@ Fixes:
   1) Pass in '{param-with-resourceGroupOrDeploymentLocation-in-default-value}' 
 FAIL:
    module1.bicep:
-     param someParam string = resourceGroup().location   <<< has a default value referencing resourceGroup().location
-     resource ... {
-       location: someParam
-     }
+      param p1 string = resourceGroup().location  //p1  has a default value referencing resourceGroup().location
+      param p2 string = 'westus' //p2 is referenced inside stg's location property
+
+      resource stg 'Microsoft.Storage/storageAccounts@2021-02-01' = {
+        name: 'stg'
+        location: p2
+        kind: 'StorageV2'
+        sku: {
+          name: 'Premium_LRS'
+        }
+      }
    main.bicep:
      param p1 string
      param p2 string

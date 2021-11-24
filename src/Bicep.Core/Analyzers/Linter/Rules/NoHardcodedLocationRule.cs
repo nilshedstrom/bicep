@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Bicep.Core.Configuration;
+using Bicep.Core.CodeAction;
 using Bicep.Core.Diagnostics;
 using Bicep.Core.Navigation;
 using Bicep.Core.Parsing;
@@ -229,7 +229,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                         string functionCall = $"{resourceGroupOrDeploymentFunction}().{RGOrDeploymentLocationPropertyName}";
                         string msg = String.Format( //asdfg fixes
                                                     //asdfg CoreResources.NoHardcodedLocation_DoNotUseDeploymentOrResourceGroupLocation,
-                                "'{0}' should only be used in the default value of a parameter.",
+                                "'{0}' should only be used as the default value of a parameter.",
                                 functionCall
                                 );
                         this.diagnostics.Add(parent.CreateDiagnosticForSpan(syntax.Span, msg));
@@ -267,29 +267,47 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                     // The value is a string literal.  In that case, it must be "global" (case-insensitive)
                     if (!StringComparer.OrdinalIgnoreCase.Equals(literalValue, GlobalLocationValue))
                     {
-                        string? fix;
+                        List<CodeFix> fixes = new List<CodeFix>();
                         if (definingVariable != null)
                         {
-                            fix = $"Change variable '{definingVariable.Name}' into a parameter.";
+                            CodeFix fix = new CodeFix(
+                                $"Change variable '{definingVariable.Name}' into a parameter",
+                                true,
+                                //asdfg do I need to use a syntax tree?
+                                new CodeReplacement(definingVariable.DeclaringSyntax.Span, $"param {definingVariable.Name} string = {definingVariable.Value.ToTextPreserveFormatting()}"));
+                            fixes.Add(fix);
                         }
                         else
                         {
+
                             //asdfg find candidate parameters
-                            fix = $"Create new parameter 'location' with value `{literalValue}`.";
-                            fix += " " + $"Change '{literalValue}' into <an existing parameter>."; //asdfg any existing param?
+                            //asdfg fixWithNewParam += " " + $"Change '{literalValue}' into <an existing parameter>."; //asdfg any existing param?
+
+                            string newParamName = "location"; //asdfg
+                            CodeFix fixWithNewParam = new CodeFix(
+                                $"Create new parameter 'location' with default value {literalValue}",
+                                false,
+                                new CodeReplacement(
+                                    // asdfg find best insertion spot
+                                    new TextSpan(0, 0),
+                                    $"@description('Specifies the location for resources.')\n" //asdfg localize  asdfg customize?
+                                    + $"param {newParamName} string = {locationValueSyntax.ToTextPreserveFormatting()}\n\n"
+                                ));
+                            fixes.Add(fixWithNewParam);
                         }
 
                         var msg = String.Format(
+                                //asdfg change based on scenario?
                                 //asdff CoreResources.NoHardcodedLocation_ResourceLocationShouldBeExpressionOrGlobal,
                                 //asdfg change to "a resource's location"
-                                "A resource location should not use a hard-coded string or variable value. It should use a parameter value, an expression or the string '{0}'. Found '{1}'",
+                                "A resource location should not use a hard-coded string or variable value. It should use a parameter value, an expression or the string '{0}'. Found: '{1}'",
                                 // asdfg + " AUTO-FIXES AVAILABLE: " + (fix ?? "none"),
                                 GlobalLocationValue,
                                 literalValue);
-                        diagnostics.Add(parent.CreateDiagnosticForSpan(
+                        diagnostics.Add(parent.CreateFixableDiagnosticForSpan(
                             locationValueSyntax.Span,
-                            msg
-                        ));
+                            fixes.ToArray(),
+                            msg));
                     }
                 }
                 else
