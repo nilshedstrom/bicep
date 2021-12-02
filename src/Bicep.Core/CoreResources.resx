@@ -202,4 +202,7 @@
   <data name="UseStableVMImageRuleFixMessageFormat" xml:space="preserve">
     <value>Virtual machines shouldn't use preview images. Use stable version in imageReference property "{0}".</value>
   </data>
+  <data name="AddSecureDecorator" xml:space="preserve">
+    <value>Add secure decorator</value>
+  </data>
 </root>
